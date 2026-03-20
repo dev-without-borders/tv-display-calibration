@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Display Calibration Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0a0c;
+    --surface: #141418;
+    --border: #2a2a30;
+    --text: #e0e0e4;
+    --text-dim: #8888a0;
+    --accent: #4fc3f7;
+    --accent2: #ff7043;
+    --green: #66bb6a;
+    --yellow: #fdd835;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  #dashboard {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  .header {
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .header .sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+  }
+
+  .lang-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .lang-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+
+  .lang-btn.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .info-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .info-box strong { color: var(--accent); font-weight: 500; }
+  .info-box .warn { color: var(--accent2); font-weight: 500; }
+
+  .info-box.compact { margin-bottom: 12px; padding: 14px 20px; font-size: 13px; }
+
+  .step-grid { display: grid; gap: 12px; }
+
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .step-card:hover {
+    border-color: var(--accent);
+    background: #181820;
+  }
+
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+  }
+
+  .step-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .step-info p { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  .step-action {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(79,195,247,0.1);
+    padding: 6px 14px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .legend {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .legend h4 { color: var(--text); font-size: 14px; margin-bottom: 8px; }
+
+  .legend kbd {
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  .tested-on {
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tested-on span { color: var(--green); }
+
+  #testscreen {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    cursor: none;
+    z-index: 9999;
+  }
+
+  #testscreen canvas { width: 100%; height: 100%; }
+
+  #overlay-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #aaa;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    z-index: 10000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  #overlay-hint.show { opacity: 1; }
+
+  @media (max-width: 700px) {
+    .step-card { grid-template-columns: 36px 1fr; }
+    .step-action { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="dashboard">
+  <div class="header">
+    <div>
+      <h1 id="title">TV DISPLAY CALIBRATION</h1>
+      <div class="sub" id="subtitle">Visual calibration tool · HDMI / DVI · Full HD 1920×1080</div>
+    </div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('de')">DE</button>
+    </div>
+  </div>
+
+  <div class="info-box" id="intro-box"></div>
+  <div class="info-box compact" id="driver-box"></div>
+
+  <div class="step-grid" id="step-grid"></div>
+
+  <div class="legend" id="legend-box"></div>
+  <div class="tested-on" id="tested-on"></div>
+</div>
+
+<div id="testscreen">
+  <canvas id="canvas"></canvas>
+</div>
+<div id="overlay-hint"></div>
+
+<script>
+const W = 1920, H = 1080;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = W; canvas.height = H;
+
+let currentTest = -1;
+let showHelp = true;
+let lang = 'en';
+
+// ==================== i18n ====================
+const i18n = {
+  en: {
+    title: 'TV DISPLAY CALIBRATION',
+    subtitle: 'Visual calibration tool · HDMI / DVI · Full HD 1920×1080',
+    intro: `<strong>Before you start:</strong> Perform a factory reset on your TV, then connect your PC via HDMI (or DVI→HDMI).
+      Open this file in your browser and go <strong>fullscreen (F11)</strong> at 1920×1080.<br><br>
+      <span class="warn">Important:</span> Your TV must use the same <strong>RGB range</strong> as your GPU output.
+      Most TVs default to <strong>Limited Range (16-235)</strong>.
+      Run Step 0 first to check, then adjust accordingly.<br><br>
+      Order: Step 0 first (range check), then 1→6. Click any step to start, <strong>ESC</strong> to return.`,
+    driver: `<strong>RGB Range mismatch?</strong> If Step 0 reveals clipping, you have two options:<br>
+      <strong>Option A</strong> (preferred): Set your TV's HDMI input to "Full Range" or "PC Mode" (if available).<br>
+      <strong>Option B</strong>: Set your GPU output to Limited Range —
+      <strong>NVIDIA</strong>: Control Panel → Display → Change Resolution → Output Dynamic Range → Limited ·
+      <strong>AMD</strong>: Radeon Settings → Display → Color Depth: set Pixel Format to "YCbCr 4:4:4" or find RGB range ·
+      <strong>Intel</strong>: Graphics Command Center → Display → Quantization Range → Limited`,
+    legend_title: 'Controls (in test pattern)',
+    legend_body: '<kbd>ESC</kbd> Back to menu &nbsp;&nbsp;<kbd>←</kbd> <kbd>→</kbd> Prev / Next &nbsp;&nbsp;<kbd>H</kbd> Toggle help overlay &nbsp;&nbsp;<kbd>F11</kbd> Browser fullscreen',
+    tested: '<span>✓ Tested on:</span> Grundig 32 GFB 6822 (G7 chassis, DVI→HDMI, Limited Range via NVIDIA GPU)',
+    steps: [
+      { name: 'RGB Range Check', desc: 'Checks if your TV and GPU agree on the signal range. Without this, all other adjustments will be off.' },
+      { name: 'Brightness (Black Level)', desc: 'Sets the black point. You should barely see bars 1-3; bar 0 should remain invisible against black.' },
+      { name: 'Contrast (White Level)', desc: 'Sets the white point. All near-white shades must remain distinguishable — nothing should clip to pure white.' },
+      { name: 'Grayscale Ramp (Gamma)', desc: '17 steps from black to white. Each step must be clearly distinguishable; the gradient should appear smooth.' },
+      { name: 'Color & Saturation', desc: 'Shows primary colors (R/G/B), secondary colors (C/M/Y), skin tones and color ramps. Colors must be vivid and clean.' },
+      { name: 'Sharpness & Overscan', desc: 'Fine lines, checkerboards and edge markers. Sharpness should be just high enough for clean lines (no ringing). Edge markers check overscan.' },
+      { name: 'Reference Image', desc: 'Synthetic reference scene with sky, skin tones, gray card and colors for a final visual check.' }
+    ],
+    testHelp: [
+      'You should see differences in the darkest steps (from ~RGB 2) and the brightest steps (up to ~RGB 253).\nIf the darkest or brightest patches look identical → your TV and GPU disagree on RGB range.\nFix: Set TV to Full Range / PC Mode, OR set GPU to Limited Range output.',
+      'Adjust TV brightness so that:\n• Bar 0 (far left) = invisible against black\n• Bars 1-2 = barely visible\n• Bars 3+ = clearly visible\nToo high → black becomes gray. Too low → dark details are lost.',
+      'Adjust TV contrast so that:\n• All near-white steps remain distinguishable\n• No bar should merge with the white background\nToo high → bright areas clip (blow out). Too low → image looks washed out.',
+      'Each of the 17 steps must be clearly distinguishable.\nThe gradient should appear smooth and even.\nMiddle too bright → gamma too low.\nMiddle too dark → gamma too high.\nIdeal: Gamma 2.2',
+      'Adjust color/saturation on TV:\n• Red, Green, Blue: vivid but not overblown\n• Skin tones: natural, not orange or pink\n• Color transitions: smooth, no hard edges\n• Yellow clearly distinct from green and red\nColor temperature: "Warm" = most neutral white.',
+      'Set TV sharpness just high enough that\nfine lines remain clean — no bright halos (ringing).\n\nEdge markers: Can you see the white 1px border\nand red corner marks?\nIf not → disable overscan (picture format: "Just Scan" / "Original" / "1:1").',
+      'Final check: Sky a natural blue (not purple)?\nGreen vivid but not neon?\nSkin tones warm and natural?\nGray card patches neutral (no color tint)?\nIf everything looks good: calibration complete!'
+    ],
+    testNames: ['RGB Range Check', 'Brightness', 'Contrast', 'Grayscale', 'Color & Saturation', 'Sharpness & Overscan', 'Reference Image'],
+    canvasLabels: {
+      rangeTitle: 'RGB RANGE CHECK',
+      rangeSub1: 'Left: You should see differences starting from RGB 2. Right: You should see differences up to RGB 253.',
+      rangeSub2: 'If the darkest/brightest patches look identical → TV and GPU disagree on RGB range.',
+      rangeFullNote: 'Full Range: RGB 16 ≠ RGB 0 (both visible) and RGB 235 ≠ RGB 255 (both visible)',
+      rangeLimitedNote: 'Limited Range: RGB 16 = RGB 0 (identical black) and RGB 235 = RGB 255 (identical white)',
+      brightnessTitle: 'BRIGHTNESS / BLACK LEVEL',
+      brightnessSub1: 'Adjust brightness: Step 0 invisible · Steps 1-2 barely visible · From 3 onward clearly visible',
+      brightnessSub2: 'Background must remain deep black — no gray haze!',
+      contrastTitle: 'CONTRAST / WHITE LEVEL',
+      contrastSub1: 'Adjust contrast: All steps must be individually distinguishable',
+      contrastSub2: 'If the brightest steps (254, 253) vanish into white → contrast too high!',
+      gammaTitle: 'GRAYSCALE RAMP & GRADIENT',
+      gammaSub: 'Each step must be distinguishable. The gradient below should transition evenly from black to white.',
+      gammaMidRef: 'Center = RGB 128 (Gamma 2.2 reference)',
+      gammaTintCheck: 'Color neutrality: These patches should be pure gray with no color tint (pink, green, blue)',
+      colorTitle: 'COLOR & SATURATION',
+      colorSub: '100% and 75% saturation · Skin tones · RGB gradients (should be smooth)',
+      colorSkinTitle: 'SKIN TONES (Reference)',
+      skinNames: ['Light', 'Medium', 'Warm', 'Dark'],
+      sharpTitle: 'SHARPNESS & OVERSCAN',
+      sharpSub1: 'Sharpness: 1px patterns should alternate black/white cleanly, no moiré or halos',
+      sharpSub2: 'Overscan: Red corners and white border line must be fully visible',
+      sharpWedge: 'Sharpness wedge: Lines should remain visible toward center',
+      sharpLabels: ['1px checker', '2px checker', '4px checker', '1px H-lines', '1px V-lines', 'Diagonals'],
+      refTitle: 'REFERENCE IMAGE — Final Visual Check',
+      refSub: 'Sky natural blue (not purple) · Green vivid · Skin tones warm · Gray card neutral',
+      refGrayLabels: ['White', '75%', '50%', '25%', 'Black'],
+      refSkinLabel: 'Skin tones'
+    }
+  },
+  de: {
+    title: 'TV DISPLAY-KALIBRIERUNG',
+    subtitle: 'Visuelles Kalibrierungstool · HDMI / DVI · Full HD 1920×1080',
+    intro: `<strong>Vor dem Start:</strong> Werksreset am TV durchführen, dann PC per HDMI (oder DVI→HDMI) anschließen.
+      Diese Datei im Browser öffnen und auf <strong>Vollbild (F11)</strong> bei 1920×1080 stellen.<br><br>
+      <span class="warn">Wichtig:</span> TV und GPU müssen den gleichen <strong>RGB-Bereich</strong> verwenden.
+      Die meisten TVs arbeiten mit <strong>Limited Range (16-235)</strong>.
+      Zuerst Schritt 0 durchführen, dann entsprechend anpassen.<br><br>
+      Reihenfolge: Schritt 0 zuerst (Range-Check), dann 1→6. Klicke einen Schritt zum Starten, <strong>ESC</strong> zum Zurückkehren.`,
+    driver: `<strong>RGB-Range stimmt nicht überein?</strong> Wenn Schritt 0 Clipping zeigt, gibt es zwei Optionen:<br>
+      <strong>Option A</strong> (bevorzugt): Am TV den HDMI-Eingang auf „Full Range" oder „PC-Modus" stellen (falls vorhanden).<br>
+      <strong>Option B</strong>: GPU-Ausgabe auf Limited Range stellen —
+      <strong>NVIDIA</strong>: Systemsteuerung → Anzeige → Auflösung ändern → Dynamikbereich → Begrenzt ·
+      <strong>AMD</strong>: Radeon Einstellungen → Anzeige → Pixelformat auf „YCbCr 4:4:4" oder RGB-Bereich suchen ·
+      <strong>Intel</strong>: Grafikbefehlszentrale → Anzeige → Quantisierungsbereich → Begrenzt`,
+    legend_title: 'Bedienung (im Testbild)',
+    legend_body: '<kbd>ESC</kbd> Zurück zum Menü &nbsp;&nbsp;<kbd>←</kbd> <kbd>→</kbd> Vorheriges / Nächstes &nbsp;&nbsp;<kbd>H</kbd> Hilfetext ein/aus &nbsp;&nbsp;<kbd>F11</kbd> Browser-Vollbild',
+    tested: '<span>✓ Getestet mit:</span> Grundig 32 GFB 6822 (G7-Chassis, DVI→HDMI, Limited Range über NVIDIA GPU)',
+    steps: [
+      { name: 'Farbraum-Check (RGB Range)', desc: 'Prüft ob TV und GPU den gleichen Signalbereich verwenden. Ohne diesen Check sind alle weiteren Einstellungen falsch.' },
+      { name: 'Helligkeit (Schwarzwert)', desc: 'Stellt den Schwarzpegel ein. Balken 1-3 gerade noch erkennbar, Balken 0 soll unsichtbar bleiben.' },
+      { name: 'Kontrast (Weißpegel)', desc: 'Stellt den Weißpegel ein. Alle Abstufungen nahe Weiß müssen unterscheidbar bleiben — nichts darf „ausfressen".' },
+      { name: 'Grautreppe (Gamma)', desc: '17 Stufen von Schwarz bis Weiß. Jede Stufe muss klar unterscheidbar sein, der Verlauf gleichmäßig.' },
+      { name: 'Farbe & Sättigung', desc: 'Zeigt Primärfarben (R/G/B), Sekundärfarben (C/M/Y), Hauttöne und Farbverläufe. Farben müssen satt und klar sein.' },
+      { name: 'Schärfe & Overscan', desc: 'Feine Linien, Schachbrett und Randmarker. Schärfe nur so hoch, dass Linien sauber bleiben. Randlinien prüfen Overscan.' },
+      { name: 'Referenzbild', desc: 'Synthetisches Referenzbild mit Himmel, Hauttönen, Graukarte und Farben zum finalen Check.' }
+    ],
+    testHelp: [
+      'Du sollst Unterschiede in den dunkelsten Stufen (ab ~RGB 2) und hellsten Stufen (bis ~RGB 253) sehen.\nWenn die dunkelsten/hellsten Felder identisch aussehen → TV und GPU sind nicht synchron.\nLösung: TV auf Full Range / PC-Modus stellen, ODER GPU auf Limited Range.',
+      'TV-Helligkeit so einstellen:\n• Balken 0 (ganz links) = unsichtbar vor Schwarz\n• Balken 1-2 = gerade noch sichtbar\n• Ab Balken 3 = gut sichtbar\nZu hoch → Schwarz wird grau. Zu niedrig → dunkle Details gehen verloren.',
+      'TV-Kontrast so einstellen:\n• Alle Weißabstufungen müssen einzeln erkennbar sein\n• Kein Balken darf mit dem weißen Hintergrund verschmelzen\nZu hoch → helle Bereiche „fressen aus". Zu niedrig → Bild wirkt matt.',
+      'Jede der 17 Stufen muss klar unterscheidbar sein.\nDer Verlauf sollte gleichmäßig erscheinen.\nMitte zu hell → Gamma zu niedrig.\nMitte zu dunkel → Gamma zu hoch.\nIdeal: Gamma 2.2',
+      'Farbsättigung am TV so einstellen:\n• Rot, Grün, Blau satt aber nicht überstrahlt\n• Hauttöne natürlich, nicht orange oder pink\n• Farbübergänge weich, keine harten Kanten\n• Gelb klar trennbar von Grün und Rot\nFarbtemperatur: „Warm" = natürlichstes Weiß.',
+      'Schärfe am TV nur so weit aufdrehen,\ndass feine Linien sauber bleiben.\nBei zu viel Schärfe entstehen helle Ränder (Ringing).\n\nRandlinien: Sind die weißen 1px-Ränder sichtbar?\nWenn nicht → Overscan abschalten (Bildformat: „Just Scan" / „Original").',
+      'Finaler Check: Himmelblau natürlich (nicht lila)?\nGrün lebendig aber nicht neon?\nHauttöne natürlich warm?\nGraukarte neutral (kein Farbstich)?\nWenn alles passt: Kalibrierung fertig!'
+    ],
+    testNames: ['Farbraum-Check', 'Helligkeit', 'Kontrast', 'Grautreppe', 'Farbe & Sättigung', 'Schärfe & Overscan', 'Referenzbild'],
+    canvasLabels: {
+      rangeTitle: 'FARBRAUM-CHECK: RGB RANGE',
+      rangeSub1: 'Links: Unterschiede ab RGB 2 sichtbar. Rechts: Unterschiede bis RGB 253 sichtbar.',
+      rangeSub2: 'Wenn dunkelste/hellste Stufen nicht unterscheidbar → TV und GPU sind nicht synchron.',
+      rangeFullNote: 'Full Range: RGB 16 ≠ RGB 0 (beide sichtbar) und RGB 235 ≠ RGB 255 (beide sichtbar)',
+      rangeLimitedNote: 'Limited Range: RGB 16 = RGB 0 (identisch schwarz) und RGB 235 = RGB 255 (identisch weiß)',
+      brightnessTitle: 'HELLIGKEIT / SCHWARZWERT',
+      brightnessSub1: 'Helligkeit einstellen: Stufe 0 unsichtbar · Stufe 1-2 gerade erkennbar · Ab 3 gut sichtbar',
+      brightnessSub2: 'Hintergrund muss tiefes Schwarz bleiben — kein Grauschleier!',
+      contrastTitle: 'KONTRAST / WEISSPEGEL',
+      contrastSub1: 'Kontrast einstellen: Alle Stufen müssen einzeln erkennbar sein',
+      contrastSub2: 'Wenn die hellsten Stufen (254, 253) im Weiß verschwinden → Kontrast zu hoch!',
+      gammaTitle: 'GRAUTREPPE & VERLAUF',
+      gammaSub: 'Jede Stufe muss unterscheidbar sein. Verlauf unten muss gleichmäßig von Schwarz nach Weiß gehen.',
+      gammaMidRef: 'Mitte = RGB 128 (Gamma 2.2 Referenz)',
+      gammaTintCheck: 'Farbneutralität: Diese Felder sollten rein grau sein, ohne Farbstich (rosa, grün, blau)',
+      colorTitle: 'FARBE & SÄTTIGUNG',
+      colorSub: '100% und 75% Sättigung · Hauttöne · RGB-Verläufe (müssen stufenlos sein)',
+      colorSkinTitle: 'HAUTTÖNE (Referenz)',
+      skinNames: ['Hell', 'Mittel', 'Warm', 'Dunkel'],
+      sharpTitle: 'SCHÄRFE & OVERSCAN',
+      sharpSub1: 'Schärfe: 1px-Muster sollten abwechselnd schwarz/weiß sein, keine Moirés oder Geisterränder',
+      sharpSub2: 'Overscan: Rote Ecken und weiße Randlinie müssen komplett sichtbar sein',
+      sharpWedge: 'Schärfe-Keil: Linien sollten bis zur Mitte erkennbar bleiben',
+      sharpLabels: ['1px Schachbrett', '2px Schachbrett', '4px Schachbrett', '1px H-Linien', '1px V-Linien', 'Diagonalen'],
+      refTitle: 'REFERENZBILD — Visueller Gesamtcheck',
+      refSub: 'Himmel natürlich blau (nicht lila) · Grün lebendig · Hauttöne warm · Graukarte neutral',
+      refGrayLabels: ['Weiß', '75%', '50%', '25%', 'Schwarz'],
+      refSkinLabel: 'Hauttöne'
+    }
+  }
+};
+
+function L() { return i18n[lang]; }
+function CL() { return L().canvasLabels; }
+
+// ==================== Language switching ====================
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === l.toUpperCase()));
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const t = L();
+  document.getElementById('title').textContent = t.title;
+  document.getElementById('subtitle').textContent = t.subtitle;
+  document.getElementById('intro-box').innerHTML = t.intro;
+  document.getElementById('driver-box').innerHTML = t.driver;
+
+  const grid = document.getElementById('step-grid');
+  grid.innerHTML = '';
+  t.steps.forEach((s, i) => {
+    grid.innerHTML += `<div class="step-card" onclick="showTest(${i})">
+      <div class="step-num">${i}</div>
+      <div class="step-info"><h3>${s.name}</h3><p>${s.desc}</p></div>
+      <div class="step-action">${lang === 'de' ? 'STARTEN →' : 'START →'}</div>
+    </div>`;
+  });
+
+  document.getElementById('legend-box').innerHTML = `<h4>${t.legend_title}</h4>${t.legend_body}`;
+  document.getElementById('tested-on').innerHTML = t.tested;
+}
+
+// ==================== Test screen logic ====================
+function showTest(idx) {
+  currentTest = idx;
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('testscreen').style.display = 'block';
+  drawCurrent();
+  showHint(L().testNames[idx] + '  |  H = Help  |  ESC = Back', 3000);
+}
+
+function hideTest() {
+  document.getElementById('testscreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  currentTest = -1;
+}
+
+function drawCurrent() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  drawFuncs[currentTest]();
+  if (showHelp) drawHelpOverlay();
+}
+
+function drawHelpOverlay() {
+  const lines = L().testHelp[currentTest].split('\n');
+  const lh = 22, pw = 520, ph = lines.length * lh + 40;
+  const px = W - pw - 30, py = 30;
+  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  roundRect(ctx, px, py, pw, ph, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(79,195,247,0.3)'; ctx.lineWidth = 1;
+  roundRect(ctx, px, py, pw, ph, 8); ctx.stroke();
+  ctx.font = '500 13px "IBM Plex Sans", sans-serif';
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillText(L().testNames[currentTest].toUpperCase(), px + 20, py + 24);
+  ctx.font = '400 13px "IBM Plex Sans", sans-serif';
+  ctx.fillStyle = '#ccc';
+  lines.forEach((line, i) => ctx.fillText(line, px + 20, py + 48 + i * lh));
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function showHint(msg, dur) {
+  const el = document.getElementById('overlay-hint');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur || 3000);
+}
+
+function rgb(r,g,b) { return `rgb(${clamp(r)},${clamp(g)},${clamp(b)})`; }
+function clamp(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+// ==================== Test 0: Range Check ====================
+function drawRangeCheck() {
+  const cl = CL();
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const bx = 160, by = 200, bw = 120, bh = 300;
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(bx, by, bw*5, bh);
+  [0,2,5,10,20,30].forEach((v,i) => {
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(bx+i*bw, by, bw-4, bh);
+    ctx.fillStyle = '#4fc3f7'; ctx.font = '600 14px "JetBrains Mono"';
+    ctx.fillText('RGB '+v, bx+i*bw+10, by+bh+24);
+  });
+  const wx = W-160-bw*5;
+  ctx.fillStyle = rgb(255,255,255); ctx.fillRect(wx, by, bw*5, bh);
+  [255,253,250,245,235,225].forEach((v,i) => {
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(wx+i*bw, by, bw-4, bh);
+    ctx.fillStyle = '#333'; ctx.font = '600 14px "JetBrains Mono"';
+    ctx.fillText('RGB '+v, wx+i*bw+10, by+bh+24);
+  });
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '600 20px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.rangeTitle, W/2, 100);
+  ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = '#888';
+  ctx.fillText(cl.rangeSub1, W/2, 140);
+  ctx.fillText(cl.rangeSub2, W/2, 165);
+  ctx.textAlign = 'left';
+  const cx2 = W/2-200, cy = 650;
+  ctx.fillStyle = rgb(16,16,16); ctx.fillRect(cx2, cy, 100, 100);
+  ctx.fillStyle = '#666'; ctx.font = '12px "JetBrains Mono"';
+  ctx.fillText('RGB 16', cx2+10, cy+120);
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(cx2+120, cy, 100, 100);
+  ctx.fillText('RGB 0', cx2+130, cy+120);
+  ctx.fillStyle = rgb(235,235,235); ctx.fillRect(cx2+240, cy, 100, 100);
+  ctx.fillText('RGB 235', cx2+245, cy+120);
+  ctx.fillStyle = rgb(255,255,255); ctx.fillRect(cx2+360, cy, 100, 100);
+  ctx.fillStyle = '#666'; ctx.fillText('RGB 255', cx2+365, cy+120);
+  ctx.fillStyle = '#ff7043'; ctx.font = '500 13px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.rangeFullNote, W/2, cy+155);
+  ctx.fillText(cl.rangeLimitedNote, W/2, cy+178);
+  ctx.textAlign = 'left';
+}
+
+// ==================== Test 1: Brightness ====================
+function drawBrightness() {
+  const cl = CL();
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(0,0,W,H);
+  const levels = [0,1,2,3,4,5,8,10,15,20,25,30,40,50];
+  const bw = Math.floor((W-100)/levels.length), by = 200, bh = 400;
+  levels.forEach((v,i) => {
+    const x = 50+i*bw;
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(x, by, bw-4, bh);
+    ctx.fillStyle = v<30?'#4fc3f7':'#333'; ctx.font = '600 13px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(v.toString(), x+bw/2-2, by+bh+24); ctx.textAlign = 'left';
+  });
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '600 20px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.brightnessTitle, W/2, 80);
+  ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = '#888';
+  ctx.fillText(cl.brightnessSub1, W/2, 120);
+  ctx.fillText(cl.brightnessSub2, W/2, 148);
+  ctx.textAlign = 'left';
+  const py = 700;
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(W/2-200, py, 400, 80);
+  ctx.fillStyle = rgb(4,4,4); ctx.fillRect(W/2-130, py+15, 60, 50);
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(W/2-30, py+15, 60, 50);
+  ctx.fillStyle = rgb(8,8,8); ctx.fillRect(W/2+70, py+15, 60, 50);
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '11px "JetBrains Mono"'; ctx.textAlign = 'center';
+  ctx.fillText('4', W/2-100, py+95);
+  ctx.fillText('0 (Ref)', W/2, py+95);
+  ctx.fillText('8', W/2+100, py+95);
+  ctx.textAlign = 'left';
+}
+
+// ==================== Test 2: Contrast ====================
+function drawContrast() {
+  const cl = CL();
+  ctx.fillStyle = rgb(255,255,255); ctx.fillRect(0,0,W,H);
+  const levels = [255,254,253,252,251,250,248,245,240,235,230,225,215,200];
+  const bw = Math.floor((W-100)/levels.length), by = 200, bh = 400;
+  levels.forEach((v,i) => {
+    const x = 50+i*bw;
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(x, by, bw-4, bh);
+    ctx.fillStyle = v>230?'#666':'#ccc'; ctx.font = '600 13px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(v.toString(), x+bw/2-2, by+bh+24); ctx.textAlign = 'left';
+  });
+  ctx.fillStyle = '#333'; ctx.font = '600 20px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.contrastTitle, W/2, 80);
+  ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = '#666';
+  ctx.fillText(cl.contrastSub1, W/2, 120);
+  ctx.fillText(cl.contrastSub2, W/2, 148);
+  ctx.textAlign = 'left';
+}
+
+// ==================== Test 3: Gamma ====================
+function drawGamma() {
+  const cl = CL();
+  ctx.fillStyle = rgb(32,32,32); ctx.fillRect(0,0,W,H);
+  const steps = 17, bw = Math.floor((W-120)/steps), by = 150, bh = 300;
+  for (let i=0; i<steps; i++) {
+    const v = Math.round(i*255/(steps-1)), x = 60+i*bw;
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(x, by, bw-3, bh);
+    ctx.fillStyle = v<128?'#555':'#333'; ctx.font = '600 12px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(v.toString(), x+bw/2, by+bh+20); ctx.textAlign = 'left';
+  }
+  const gy = 550, gh = 80;
+  for (let x=60; x<W-60; x++) {
+    const v = Math.round(((x-60)/(W-120))*255);
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(x, gy, 1, gh);
+  }
+  const midX = 60+Math.floor((W-120)/2);
+  ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(midX, gy+gh+5); ctx.lineTo(midX, gy+gh+30); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '12px "JetBrains Mono"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.gammaMidRef, midX, gy+gh+45);
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '600 20px "IBM Plex Sans"';
+  ctx.fillText(cl.gammaTitle, W/2, 80);
+  ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = '#888';
+  ctx.fillText(cl.gammaSub, W/2, 110); ctx.textAlign = 'left';
+  const tcy = 700, grays = [64,96,128,160,192];
+  grays.forEach((v,i) => {
+    const x = W/2-275+i*115;
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(x, tcy, 100, 70);
+    ctx.fillStyle = '#4fc3f7'; ctx.font = '11px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText('RGB '+v, x+50, tcy+90);
+  });
+  ctx.fillStyle = '#888'; ctx.font = '13px "IBM Plex Sans"';
+  ctx.fillText(cl.gammaTintCheck, W/2, tcy-15);
+  ctx.textAlign = 'left';
+}
+
+// ==================== Test 4: Color ====================
+function drawColor() {
+  const cl = CL();
+  ctx.fillStyle = rgb(32,32,32); ctx.fillRect(0,0,W,H);
+  const colors = [
+    {name:'RED/ROT',r:255,g:0,b:0},{name:'GREEN/GRÜN',r:0,g:255,b:0},{name:'BLUE/BLAU',r:0,g:0,b:255},
+    {name:'CYAN',r:0,g:255,b:255},{name:'MAGENTA',r:255,g:0,b:255},{name:'YELLOW/GELB',r:255,g:255,b:0}
+  ];
+  const bw2=160, bh2=200, gap=20;
+  const startX = (W-colors.length*(bw2+gap)+gap)/2, by2=130;
+  colors.forEach((c,i) => {
+    const x = startX+i*(bw2+gap);
+    ctx.fillStyle = rgb(c.r,c.g,c.b); ctx.fillRect(x, by2, bw2, bh2);
+    ctx.fillStyle = `rgb(${Math.round(c.r*0.75)},${Math.round(c.g*0.75)},${Math.round(c.b*0.75)})`;
+    ctx.fillRect(x, by2+bh2+4, bw2, 40);
+    ctx.fillStyle = '#aaa'; ctx.font = '600 13px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(c.name, x+bw2/2, by2+bh2+70);
+    ctx.font = '400 11px "JetBrains Mono"'; ctx.fillStyle = '#666';
+    ctx.fillText(`${c.r},${c.g},${c.b}`, x+bw2/2, by2+bh2+86);
+    ctx.textAlign = 'left';
+  });
+  const sty = 520;
+  const skinTones = [
+    {r:240,g:210,b:185},{r:210,g:165,b:120},{r:180,g:120,b:80},{r:120,g:75,b:50}
+  ];
+  ctx.fillStyle = '#888'; ctx.font = '500 14px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.colorSkinTitle, W/2, sty-10);
+  skinTones.forEach((s,i) => {
+    const x = W/2-250+i*130;
+    ctx.fillStyle = rgb(s.r,s.g,s.b); ctx.fillRect(x, sty, 110, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '12px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(cl.skinNames[i], x+55, sty+100); ctx.textAlign = 'left';
+  });
+  const gby = 680, gbh = 40;
+  [[255,0,0,'R'],[0,255,0,'G'],[0,0,255,'B']].forEach((col,ci) => {
+    const y = gby+ci*(gbh+8);
+    for (let x=80; x<W-80; x++) {
+      const t2 = (x-80)/(W-160);
+      ctx.fillStyle = rgb(Math.round(col[0]*t2), Math.round(col[1]*t2), Math.round(col[2]*t2));
+      ctx.fillRect(x, y, 1, gbh);
+    }
+    ctx.fillStyle = '#555'; ctx.font = '600 13px "JetBrains Mono"'; ctx.fillText(col[3], 50, y+27);
+  });
+  ctx.fillStyle = '#4fc3f7'; ctx.font = '600 20px "IBM Plex Sans"'; ctx.textAlign = 'center';
+  ctx.fillText(cl.colorTitle, W/2, 70);
+  ctx.font = '400 14px "IBM Plex Sans"'; ctx.fillStyle = '#888';
+  ctx.fillText(cl.colorSub, W/2, 100); ctx.textAlign = 'left';
+}
+
+// ==================== Test 5: Sharpness ====================
+function drawSharpness() {
+  const cl = CL();
+  ctx.fillStyle = rgb(128,128,128); ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = rgb(255,255,255); ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, W-1, H-1);
+  ctx.strokeStyle = rgb(255,0,0); ctx.lineWidth = 2;
+  const cm = 40;
+  [[0,0],[W,0],[0,H],[W,H]].forEach(([cx2,cy2]) => {
+    ctx.beginPath();
+    ctx.moveTo(cx2===0?1:cx2-1, cy2===0?cm:cy2-cm);
+    ctx.lineTo(cx2===0?1:cx2-1, cy2===0?1:cy2-1);
+    ctx.lineTo(cx2===0?cm:cx2-cm, cy2===0?1:cy2-1);
+    ctx.stroke();
+  });
+  ctx.strokeStyle = rgb(255,255,255); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W/2,H/2-60); ctx.lineTo(W/2,H/2+60); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2-60,H/2); ctx.lineTo(W/2+60,H/2); ctx.stroke();
+  const patterns = [{size:1,x:100,y:200},{size:2,x:360,y:200},{size:4,x:620,y:200}];
+  patterns.forEach((p,pi) => {
+    for (let py2=0; py2<200; py2+=p.size) for (let px2=0; px2<200; px2+=p.size) {
+      ctx.fillStyle = ((px2/p.size)+(py2/p.size))%2===0 ? rgb(255,255,255) : rgb(0,0,0);
+      ctx.fillRect(p.x+px2, p.y+py2, p.size, p.size);
+    }
+    ctx.fillStyle = '#fff'; ctx.font = '600 14px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(cl.sharpLabels[pi], p.x+100, p.y+220); ctx.textAlign = 'left';
+  });
+  const lx=950, ly=200;
+  for (let y=0;y<200;y++) { ctx.fillStyle = y%2===0?rgb(255,255,255):rgb(0,0,0); ctx.fillRect(lx,ly+y,200,1); }
+  ctx.fillStyle='#fff'; ctx.font='600 14px "JetBrains Mono"'; ctx.textAlign='center';
+  ctx.fillText(cl.sharpLabels[3], lx+100, ly+220); ctx.textAlign='left';
+  const vlx=1250, vly=200;
+  for (let x=0;x<200;x++) { ctx.fillStyle = x%2===0?rgb(255,255,255):rgb(0,0,0); ctx.fillRect(vlx+x,vly,1,200); }
+  ctx.fillStyle='#fff'; ctx.font='600 14px "JetBrains Mono"'; ctx.textAlign='center';
+  ctx.fillText(cl.sharpLabels[4], vlx+100, vly+220); ctx.textAlign='left';
+  const dx=1550, dy=200;
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(dx,dy,200,200);
+  ctx.strokeStyle = rgb(255,255,255); ctx.lineWidth = 1;
+  for (let i2=-200;i2<400;i2+=6) {
+    ctx.beginPath(); ctx.moveTo(dx+i2,dy); ctx.lineTo(dx+i2+200,dy+200); ctx.stroke();
+    if (i2>400) break;
+  }
+  ctx.fillStyle='#fff'; ctx.font='600 14px "JetBrains Mono"'; ctx.textAlign='center';
+  ctx.fillText(cl.sharpLabels[5], dx+100, dy+220); ctx.textAlign='left';
+  ctx.fillStyle='#fff'; ctx.font='600 20px "IBM Plex Sans"'; ctx.textAlign='center';
+  ctx.fillText(cl.sharpTitle, W/2, 80);
+  ctx.font='400 14px "IBM Plex Sans"'; ctx.fillStyle='#ddd';
+  ctx.fillText(cl.sharpSub1, W/2, 110);
+  ctx.fillText(cl.sharpSub2, W/2, 135); ctx.textAlign='left';
+  ctx.fillStyle='#ff0'; ctx.font='11px "JetBrains Mono"';
+  ctx.textAlign='left'; ctx.fillText('0,0',8,16);
+  ctx.textAlign='right'; ctx.fillText('1919,0',W-8,16);
+  ctx.textAlign='left'; ctx.fillText('0,1079',8,H-6);
+  ctx.textAlign='right'; ctx.fillText('1919,1079',W-8,H-6);
+  ctx.textAlign='left';
+  const wy=600;
+  ctx.fillStyle = rgb(0,0,0); ctx.fillRect(W/2-400,wy,800,250);
+  ctx.strokeStyle = rgb(255,255,255); ctx.lineWidth = 1;
+  for (let i2=0;i2<40;i2++) {
+    const spread=i2*20; if(spread>240) break;
+    ctx.beginPath(); ctx.moveTo(W/2,wy+125); ctx.lineTo(W/2-380,wy+125-spread/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2,wy+125); ctx.lineTo(W/2+380,wy+125-spread/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2,wy+125); ctx.lineTo(W/2-380,wy+125+spread/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2,wy+125); ctx.lineTo(W/2+380,wy+125+spread/2); ctx.stroke();
+  }
+  ctx.fillStyle='#4fc3f7'; ctx.font='12px "JetBrains Mono"'; ctx.textAlign='center';
+  ctx.fillText(cl.sharpWedge, W/2, wy+270); ctx.textAlign='left';
+}
+
+// ==================== Test 6: Reference ====================
+function drawReference() {
+  const cl = CL();
+  for (let y=0; y<H*0.55; y++) {
+    const t2=y/(H*0.55);
+    ctx.fillStyle = rgb(60+t2*100, 130+t2*70, 220-t2*40);
+    ctx.fillRect(0,y,W,1);
+  }
+  for (let y=Math.floor(H*0.55); y<H; y++) {
+    const t2=(y-H*0.55)/(H*0.45);
+    ctx.fillStyle = rgb(45+t2*30, 95+t2*20-t2*t2*40, 25+t2*15);
+    ctx.fillRect(0,y,W,1);
+  }
+  const gx=80, gy=650;
+  const grayVals = [255,192,128,64,0];
+  grayVals.forEach((v,i) => {
+    ctx.fillStyle = rgb(v,v,v); ctx.fillRect(gx+i*90, gy, 80, 60);
+    ctx.fillStyle = v>128?'#333':'#ccc'; ctx.font = '11px "JetBrains Mono"'; ctx.textAlign = 'center';
+    ctx.fillText(cl.refGrayLabels[i], gx+i*90+40, gy+75); ctx.textAlign = 'left';
+  });
+  const stx=W/2+100, sty2=300;
+  const skins = [{r:240,g:210,b:185},{r:220,g:185,b:155},{r:190,g:145,b:105},{r:150,g:100,b:65},{r:100,g:60,b:35}];
+  skins.forEach((s,i) => {
+    ctx.fillStyle = rgb(s.r,s.g,s.b);
+    ctx.beginPath(); ctx.arc(stx+i*75, sty2, 30, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.fillStyle='#fff'; ctx.font='500 13px "IBM Plex Sans"'; ctx.textAlign='center';
+  ctx.fillText(cl.refSkinLabel, stx+150, sty2-45);
+  const cpx=W-250, cpy=500;
+  [[255,0,0],[0,180,0],[0,0,255],[255,255,0],[0,200,200],[200,0,200]].forEach((c,i) => {
+    const row=Math.floor(i/3), col=i%3;
+    ctx.fillStyle = rgb(c[0],c[1],c[2]);
+    ctx.fillRect(cpx+col*75, cpy+row*75, 65, 65);
+  });
+  ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,50);
+  ctx.fillStyle='#fff'; ctx.font='600 18px "IBM Plex Sans"'; ctx.textAlign='center';
+  ctx.fillText(cl.refTitle, W/2, 33);
+  ctx.font='400 13px "IBM Plex Sans"'; ctx.fillStyle='#ccc';
+  ctx.fillText(cl.refSub, W/2, 70); ctx.textAlign='left';
+}
+
+const drawFuncs = [drawRangeCheck, drawBrightness, drawContrast, drawGamma, drawColor, drawSharpness, drawReference];
+
+// ==================== Keyboard ====================
+document.addEventListener('keydown', e => {
+  if (currentTest < 0) return;
+  if (e.key === 'Escape') hideTest();
+  else if (e.key === 'ArrowRight') { currentTest = (currentTest+1)%drawFuncs.length; drawCurrent(); showHint(L().testNames[currentTest], 2000); }
+  else if (e.key === 'ArrowLeft') { currentTest = (currentTest-1+drawFuncs.length)%drawFuncs.length; drawCurrent(); showHint(L().testNames[currentTest], 2000); }
+  else if (e.key === 'h' || e.key === 'H') { showHelp = !showHelp; drawCurrent(); }
+});
+
+document.getElementById('testscreen').addEventListener('click', hideTest);
+
+// Init
+renderDashboard();
+</script>
+</body>
+</html>
